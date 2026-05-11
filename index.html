@@ -1485,9 +1485,8 @@ function switchAcc(e){
 }
 async function signOut(e){
   CP(e)
-  if(!confirm('Sign out?')) return
-  if(SB_READY) await _sb.auth.signOut()
-  // Reset UI immediately — don't rely on SIGNED_OUT event firing
+  // Sign out immediately — no confirm() since it gets silently blocked on mobile
+  if(SB_READY){ try{ await _sb.auth.signOut() }catch(err){ console.warn('signOut error:',err) } }
   AU_SB_ID=null; AU_PARTNER_ID=null
   resetLocalData()
   showAuthOverlay()
@@ -2794,10 +2793,9 @@ async function afterSignIn(){
   }
   updateSBAv()
   await loadAllDataFromSB()
-  buildRepOptions()
-  // Render overview + whichever tab the user is currently on
-  renderOV()
-  if(CUR && CUR !== 'overview') renderPage(CUR)
+  // loadAllDataFromSB() already calls renderOV + renderPage(CUR) internally
+  // but call updateSBAv again in case avatar changed
+  updateSBAv()
 }
 
 function resetLocalData(){
@@ -2845,14 +2843,20 @@ async function loadAllDataFromSB(){
     }
     toast('Data loaded! 🐾')
   }catch(err){console.error('Load error:',err);toast('Some data failed to load','⚠️')}
+  // ── Always re-render after data loads, regardless of timing ──
+  try{
+    buildRepOptions()
+    renderOV()
+    renderPage(CUR)
+  }catch(e){ console.warn('Render after load error:',e) }
 }
 
 
 // ═══════════════════════════════════════════════════════════
 //  🔌 SUPABASE CONFIGURATION — REPLACE THESE TWO VALUES
 // ═══════════════════════════════════════════════════════════
-const SUPABASE_URL  = 'https://zjedhcplaxjkzncodzng.supabase.co'
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqZWRoY3BsYXhqa3puY29kem5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0MjQwMTQsImV4cCI6MjA5NDAwMDAxNH0.1AF5Ve-bYWYdHS0KBO6aG78n8w8qgIoBtRV7GUjlvjk'
+const SUPABASE_URL  = 'https://ndawgnloqbuetcvvgybb.supabase.co'
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kYXdnbmxvcWJ1ZXRjdnZneWJiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MDgwMTksImV4cCI6MjA5NDA4NDAxOX0.J4eszjV8l5YHmJc6rWFg1d8EgVJhZNBFw4nCz_G6YfQ'
 
 let _sb = null
 let SB_READY = false
