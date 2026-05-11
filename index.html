@@ -2738,16 +2738,8 @@ async function doSignUp(){
 async function _startAuth(){
   if(!SB_READY){ showAuthOverlay(); return }
 
-  // ── Safety: always sign out on page load/refresh ──────────
-  // This forces re-authentication every time the page is refreshed,
-  // preventing stale/partial data from a broken session state.
-  try{ await _sb.auth.signOut() }catch(e){ console.warn('Pre-clear signOut:',e) }
-
-  // Always show auth overlay on fresh load
-  showAuthOverlay()
-
   _sb.auth.onAuthStateChange(async(event,session)=>{
-    if(session&&(event==='SIGNED_IN'||event==='TOKEN_REFRESHED')){
+    if(session&&(event==='SIGNED_IN'||event==='INITIAL_SESSION'||event==='TOKEN_REFRESHED')){
       const isNewLogin=AU_SB_ID!==session.user.id
       AU_SB_ID=session.user.id
       USERS.u1.name=session.user.user_metadata?.display_name||'You'
@@ -2760,10 +2752,6 @@ async function _startAuth(){
       showAuthOverlay()
     }
   })
-
-  // No getSession() check here — we already cleared it above.
-  // User must sign in fresh every time.
-}
 
   // Explicit session check — safety net for when INITIAL_SESSION fires
   // before the listener is registered (CDN timing race on page refresh)
@@ -2867,8 +2855,8 @@ async function loadAllDataFromSB(){
 // ═══════════════════════════════════════════════════════════
 //  🔌 SUPABASE CONFIGURATION — REPLACE THESE TWO VALUES
 // ═══════════════════════════════════════════════════════════
-const SUPABASE_URL  = 'https://afnfjmrziitfwxlorlka.supabase.co'
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFmbmZqbXJ6aWl0Znd4bG9ybGthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MDY3NTAsImV4cCI6MjA5NDA4Mjc1MH0.3aLSIQw0bUBV34FWzPydgsH2tko4HDG8cXgMmMTSXCY'
+const SUPABASE_URL  = 'https://maubuyfhtkbpncrtagre.supabase.co'
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1hdWJ1eWZodGticG5jcnRhZ3JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MTI0NzksImV4cCI6MjA5NDA4ODQ3OX0.bpqYM2IyW_Aegv5MEgg2ckeQB2zKCqehSE4ICNyuFHE'
 
 let _sb = null
 let SB_READY = false
