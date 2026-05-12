@@ -258,7 +258,10 @@ async function signOut(e){
   // Sign out immediately — no confirm() since it gets silently blocked on mobile
   if(SB_READY){ try{ await _sb.auth.signOut() }catch(err){ console.warn('signOut error:',err) } }
   AU_SB_ID=null; AU_PARTNER_ID=null
+  AU='u1'
   resetLocalData()
+  updateSBAv()
+  renderPage('overview')
   showAuthOverlay()
   toast('Signed out 🚪')
 }
@@ -1422,22 +1425,26 @@ function toast(msg,icon='✅'){const el=document.createElement('div');el.classNa
 function showErr(id,msg){const el=document.getElementById(id);if(el){el.textContent=msg;el.style.display='block'}}
 
 // ─── INIT ─────────────────────────────────────────────────
-window.addEventListener('DOMContentLoaded',()=>{
+async function ensureSBReady(){
+  _initSBClient()
+  if(SB_READY) return true
+  const maxAttempts = 8
+  const retryDelay = 250
+  for(let i=0;i<maxAttempts && !SB_READY;i++){
+    await new Promise(resolve=>setTimeout(resolve, retryDelay))
+    _initSBClient()
+  }
+  return SB_READY
+}
+
+window.addEventListener('DOMContentLoaded',async()=>{
   document.getElementById('staticDate').textContent=new Date().toLocaleDateString('en-PH',{weekday:'short',month:'long',day:'numeric',year:'numeric'})
   document.getElementById('ttTrack').classList.toggle('on',!DARK)
   document.querySelectorAll('input[type=date]').forEach(i=>{if(!i.value)i.value=tod()})
   initPetals()
   // Supabase CDN is in <head> — init immediately
-  _initSBClient()
-  if(SB_READY){
-    _startAuth()
-  } else {
-    // Small safety delay in case CDN loaded slightly late
-    setTimeout(()=>{
-      if(!SB_READY) _initSBClient()
-      _startAuth()
-    }, 500)
-  }
+  await ensureSBReady()
+  _startAuth()
 })
 
 // ─── AUTH FLOW ──────────────────────────────────────────────
@@ -1524,19 +1531,24 @@ async function _startAuth(){
   })
 
   // Explicit session check — safety net for when INITIAL_SESSION fires
-  // before the listener is registered (CDN timing race on page refresh)
+  // before the listener is registered or supabase loads slowly.
   try{
     const {data:{session}}=await _sb.auth.getSession()
-    if(session&&!AU_SB_ID){
+    if(session){
+      const isNewLogin = AU_SB_ID!==session.user.id
       AU_SB_ID=session.user.id
       USERS.u1.name=session.user.user_metadata?.display_name||'You'
       USERS.u1.email=session.user.email||''
       hideAuthOverlay()
-      await afterSignIn()
-    } else if(!session&&!AU_SB_ID){
+      if(isNewLogin) await afterSignIn()
+    } else if(!session){
+      AU_SB_ID=null
       showAuthOverlay()
     }
-  }catch(err){console.warn('Session check error:',err);showAuthOverlay()}
+  }catch(err){
+    console.warn('Session check error:',err)
+    showAuthOverlay()
+  }
 }
 
 async function afterSignIn(){
