@@ -1722,8 +1722,8 @@ async function loadAllDataFromSB(){
 // ═══════════════════════════════════════════════════════════
 //  🔌 SUPABASE CONFIGURATION — REPLACE THESE TWO VALUES
 // ═══════════════════════════════════════════════════════════
-const SUPABASE_URL  = 'https://wenbggljligqxmdzmmqx.supabase.co'
-const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlbmJnZ2xqbGlncXhtZHptbXF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1Nzc3NjAsImV4cCI6MjA5NDE1Mzc2MH0.ztz_OwC2FQTxZbMJrjdsbW3QnpVjkym57a76XOK_6vE'
+const SUPABASE_URL  = 'https://ejagnreiypaubltgukuc.supabase.co'
+const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqYWducmVpeXBhdWJsdGd1a3VjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1ODg3MDksImV4cCI6MjA5NDE2NDcwOX0.jtsAM7wpOehk40fNaFxMF7g3hOCF1AzAq6qSAUMijYU'
 
 let _sb = null
 let SB_READY = false
