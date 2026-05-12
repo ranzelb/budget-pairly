@@ -1427,23 +1427,30 @@ function showErr(id,msg){const el=document.getElementById(id);if(el){el.textCont
 // ─── INIT ─────────────────────────────────────────────────
 async function ensureSBReady(){
   _initSBClient()
-  if(SB_READY) return true
+  if(SB_READY){
+    console.log('✅ Supabase ready on first try')
+    return true
+  }
   const maxAttempts = 8
   const retryDelay = 250
   for(let i=0;i<maxAttempts && !SB_READY;i++){
     await new Promise(resolve=>setTimeout(resolve, retryDelay))
     _initSBClient()
+    if(SB_READY) console.log(`✅ Supabase ready after ${i+1} retry attempt(s)`)
   }
+  if(!SB_READY) console.warn('⚠️ Supabase failed to init after all retries')
   return SB_READY
 }
 
 window.addEventListener('DOMContentLoaded',async()=>{
+  console.log('📍 DOMContentLoaded fired')
   document.getElementById('staticDate').textContent=new Date().toLocaleDateString('en-PH',{weekday:'short',month:'long',day:'numeric',year:'numeric'})
   document.getElementById('ttTrack').classList.toggle('on',!DARK)
   document.querySelectorAll('input[type=date]').forEach(i=>{if(!i.value)i.value=tod()})
   initPetals()
   // Supabase CDN is in <head> — init immediately
   await ensureSBReady()
+  console.log('📍 Starting auth flow. SB_READY=', SB_READY)
   _startAuth()
 })
 
@@ -1513,17 +1520,25 @@ async function doSignUp(){
 }
 
 async function _startAuth(){
-  if(!SB_READY){ showAuthOverlay(); return }
+  if(!SB_READY){
+    console.log('⚠️ Supabase not ready, showing auth overlay')
+    showAuthOverlay()
+    return
+  }
 
+  console.log('📍 Setting up auth state listener')
   _sb.auth.onAuthStateChange(async(event,session)=>{
+    console.log('🔔 Auth state change:', event, session?.user?.id ? '✅ has session' : '❌ no session')
     if(session&&(event==='SIGNED_IN'||event==='INITIAL_SESSION'||event==='TOKEN_REFRESHED')){
       const isNewLogin=AU_SB_ID!==session.user.id
       AU_SB_ID=session.user.id
       USERS.u1.name=session.user.user_metadata?.display_name||'You'
       USERS.u1.email=session.user.email||''
+      console.log('✅ Auth listener: session restored. isNewLogin=', isNewLogin, 'AU_SB_ID=', AU_SB_ID)
       hideAuthOverlay()
       if(isNewLogin) await afterSignIn()
     } else if(event==='SIGNED_OUT'||(event==='INITIAL_SESSION'&&!session)){
+      console.log('❌ Auth listener: signed out or no session')
       AU_SB_ID=null; AU_PARTNER_ID=null
       resetLocalData()
       showAuthOverlay()
@@ -1532,16 +1547,26 @@ async function _startAuth(){
 
   // Explicit session check — safety net for when INITIAL_SESSION fires
   // before the listener is registered or supabase loads slowly.
+  console.log('📍 Running explicit session check')
   try{
     const {data:{session}}=await _sb.auth.getSession()
+    console.log('📍 Explicit getSession result:', session?.user?.id ? `✅ session found (${session.user.id})` : '❌ no session')
     if(session){
       const isNewLogin = AU_SB_ID!==session.user.id
       AU_SB_ID=session.user.id
       USERS.u1.name=session.user.user_metadata?.display_name||'You'
       USERS.u1.email=session.user.email||''
+      console.log('✅ Explicit check: session restored. isNewLogin=', isNewLogin)
       hideAuthOverlay()
-      if(isNewLogin) await afterSignIn()
+      if(isNewLogin){
+        console.log('⏳ Calling afterSignIn from explicit session check')
+        await afterSignIn()
+      } else {
+        console.log('⏳ Session already known, loading data anyway for refresh')
+        await loadAllDataFromSB()
+      }
     } else if(!session){
+      console.log('❌ Explicit check: no session found')
       AU_SB_ID=null
       showAuthOverlay()
     }
@@ -1552,8 +1577,10 @@ async function _startAuth(){
 }
 
 async function afterSignIn(){
+  console.log('⏳ afterSignIn() starting for user:', AU_SB_ID)
   updateSBAv()
   const profile=await sbLoadProfile(AU_SB_ID)
+  console.log('📍 Profile loaded:', profile?.display_name)
   if(profile){
     USERS.u1.name    = profile.display_name  || 'You'
     USERS.u1.avatar  = profile.avatar_emoji  || '🐱'
@@ -1574,7 +1601,9 @@ async function afterSignIn(){
     }
   }
   updateSBAv()
+  console.log('⏳ Calling loadAllDataFromSB()')
   await loadAllDataFromSB()
+  console.log('✅ afterSignIn() complete')
   // loadAllDataFromSB() already calls renderOV + renderPage(CUR) internally
   // but call updateSBAv again in case avatar changed
   updateSBAv()
@@ -1586,7 +1615,11 @@ function resetLocalData(){
 }
 
 async function loadAllDataFromSB(){
-  if(!SB_READY||!AU_SB_ID)return
+  console.log('⏳ loadAllDataFromSB() starting. SB_READY=', SB_READY, 'AU_SB_ID=', AU_SB_ID)
+  if(!SB_READY||!AU_SB_ID){
+    console.warn('⚠️ Skipping load: SB_READY=', SB_READY, 'AU_SB_ID=', AU_SB_ID)
+    return
+  }
   try{
     // Budgets (own)
     const budgets=await sbLoadBudgets(AU_SB_ID)
@@ -1623,14 +1656,23 @@ async function loadAllDataFromSB(){
       S.cats=S.cats.map(lc=>{const sbId=sbCatMap[lc.name];return sbId?{...lc,id:sbId}:lc})
       userCats.forEach(uc=>{if(!S.cats.find(sc=>sc.id===uc.id))S.cats.push({id:uc.id,name:uc.name,icon:uc.icon||'🏷️',color:uc.color||'#95a5a6'})})
     }
+    console.log('✅ All Supabase data loaded successfully')
     toast('Data loaded! 🐾')
-  }catch(err){console.error('Load error:',err);toast('Some data failed to load','⚠️')}
+  }catch(err){
+    console.error('Load error:',err)
+    toast('Some data failed to load','⚠️')
+  }
   // ── Always re-render after data loads, regardless of timing ──
+  console.log('📍 Re-rendering after load. CUR=', CUR)
   try{
     buildRepOptions()
     renderOV()
     renderPage(CUR)
-  }catch(e){ console.warn('Render after load error:',e) }
+    console.log('✅ Render complete')
+  }catch(e){
+    console.warn('Render after load error:',e)
+    console.error('Error details:', e.stack)
+  }
 }
 
 
