@@ -1747,10 +1747,25 @@ async function sbGetUser() {
 
 // ── PROFILE HELPERS ────────────────────────────────────────
 async function sbLoadProfile(userId) {
-  if (!SB_READY) return null
-  const { data, error } = await _sb.from('profiles').select('*').eq('id', userId).single()
-  if (error) return null
-  return data
+  console.log('🔧 sbLoadProfile() called with userId:', userId, 'SB_READY:', SB_READY)
+  if (!SB_READY){
+    console.warn('⚠️ sbLoadProfile: Supabase not ready')
+    return null
+  }
+  try{
+    console.log('🔧 Querying profiles table...')
+    const { data, error } = await _sb.from('profiles').select('*').eq('id', userId).single()
+    console.log('🔧 Query returned. error:', error, 'data:', data)
+    if (error){
+      console.warn('⚠️ sbLoadProfile query error:', error.message)
+      return null
+    }
+    console.log('✅ sbLoadProfile returning data')
+    return data
+  }catch(err){
+    console.error('❌ sbLoadProfile exception:', err)
+    return null
+  }
 }
 
 async function sbSaveProfile(userId, updates) {
