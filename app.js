@@ -1753,15 +1753,22 @@ async function sbLoadProfile(userId) {
     return null
   }
   try{
-    const session = await _sb.auth.getSession()
-    console.log('🔧 Auth session check - has token:', !!session?.data?.session?.access_token)
-    console.log('🔧 Querying profiles table with 5s timeout...')
+    console.log('🔧 About to execute query...')
     
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Query timeout after 5s')), 5000)
-    )
+    const timeoutPromise = new Promise((_, reject) => {
+      const timer = setTimeout(() => reject(new Error('Query timeout after 3s')), 3000)
+      timer.unref?.() // Allow process to exit if only this timer remains
+    })
     
-    const queryPromise = _sb.from('profiles').select('*').eq('id', userId).single()
+    console.log('🔧 Creating query promise...')
+    const queryPromise = (async () => {
+      console.log('🔧 Inside query promise, calling _sb.from...')
+      const result = await _sb.from('profiles').select('*').eq('id', userId).single()
+      console.log('🔧 Query completed inside promise')
+      return result
+    })()
+    
+    console.log('🔧 Starting Promise.race...')
     const { data, error } = await Promise.race([queryPromise, timeoutPromise])
     
     console.log('🔧 Query returned. error:', error, 'data:', data)
