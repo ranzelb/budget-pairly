@@ -1753,8 +1753,17 @@ async function sbLoadProfile(userId) {
     return null
   }
   try{
-    console.log('🔧 Querying profiles table...')
-    const { data, error } = await _sb.from('profiles').select('*').eq('id', userId).single()
+    const session = await _sb.auth.getSession()
+    console.log('🔧 Auth session check - has token:', !!session?.data?.session?.access_token)
+    console.log('🔧 Querying profiles table with 5s timeout...')
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Query timeout after 5s')), 5000)
+    )
+    
+    const queryPromise = _sb.from('profiles').select('*').eq('id', userId).single()
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise])
+    
     console.log('🔧 Query returned. error:', error, 'data:', data)
     if (error){
       console.warn('⚠️ sbLoadProfile query error:', error.message)
@@ -1763,7 +1772,7 @@ async function sbLoadProfile(userId) {
     console.log('✅ sbLoadProfile returning data')
     return data
   }catch(err){
-    console.error('❌ sbLoadProfile exception:', err)
+    console.error('❌ sbLoadProfile exception:', err.message)
     return null
   }
 }
