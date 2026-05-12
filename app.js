@@ -1578,35 +1578,42 @@ async function _startAuth(){
 
 async function afterSignIn(){
   console.log('⏳ afterSignIn() starting for user:', AU_SB_ID)
-  updateSBAv()
-  const profile=await sbLoadProfile(AU_SB_ID)
-  console.log('📍 Profile loaded:', profile?.display_name)
-  if(profile){
-    USERS.u1.name    = profile.display_name  || 'You'
-    USERS.u1.avatar  = profile.avatar_emoji  || '🐱'
-    // ✅ FIX: set the REAL invite code from Supabase (not the hardcoded one)
-    USERS.u1.inviteCode = profile.invite_code || 'Loading…'
-    // Load photo if saved
-    if(profile.avatar_url){ USERS.u1.photo = profile.avatar_url }
-    AU_PARTNER_ID = profile.partner_id || null
-    if(AU_PARTNER_ID){
-      const pp=await sbLoadProfile(AU_PARTNER_ID)
-      if(pp){
-        USERS.u2.name   = pp.display_name  || 'Partner'
-        USERS.u2.avatar = pp.avatar_emoji  || '🐈'
-        USERS.u2.id     = AU_PARTNER_ID
-        USERS.u2.inviteCode = pp.invite_code || ''
-        if(pp.avatar_url) USERS.u2.photo = pp.avatar_url
+  try{
+    updateSBAv()
+    console.log('📍 Calling sbLoadProfile...')
+    const profile=await sbLoadProfile(AU_SB_ID)
+    console.log('✅ Profile loaded:', profile?.display_name, 'Full profile:', profile)
+    if(profile){
+      USERS.u1.name    = profile.display_name  || 'You'
+      USERS.u1.avatar  = profile.avatar_emoji  || '🐱'
+      // ✅ FIX: set the REAL invite code from Supabase (not the hardcoded one)
+      USERS.u1.inviteCode = profile.invite_code || 'Loading…'
+      // Load photo if saved
+      if(profile.avatar_url){ USERS.u1.photo = profile.avatar_url }
+      AU_PARTNER_ID = profile.partner_id || null
+      if(AU_PARTNER_ID){
+        const pp=await sbLoadProfile(AU_PARTNER_ID)
+        if(pp){
+          USERS.u2.name   = pp.display_name  || 'Partner'
+          USERS.u2.avatar = pp.avatar_emoji  || '🐈'
+          USERS.u2.id     = AU_PARTNER_ID
+          USERS.u2.inviteCode = pp.invite_code || ''
+          if(pp.avatar_url) USERS.u2.photo = pp.avatar_url
+        }
       }
     }
+    updateSBAv()
+    console.log('⏳ Calling loadAllDataFromSB()')
+    await loadAllDataFromSB()
+    console.log('✅ afterSignIn() complete')
+    // loadAllDataFromSB() already calls renderOV + renderPage(CUR) internally
+    // but call updateSBAv again in case avatar changed
+    updateSBAv()
+  }catch(err){
+    console.error('❌ afterSignIn() error:', err)
+    console.error('Stack trace:', err.stack)
+    throw err
   }
-  updateSBAv()
-  console.log('⏳ Calling loadAllDataFromSB()')
-  await loadAllDataFromSB()
-  console.log('✅ afterSignIn() complete')
-  // loadAllDataFromSB() already calls renderOV + renderPage(CUR) internally
-  // but call updateSBAv again in case avatar changed
-  updateSBAv()
 }
 
 function resetLocalData(){
