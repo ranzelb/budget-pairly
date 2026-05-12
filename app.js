@@ -1536,7 +1536,11 @@ async function _startAuth(){
       USERS.u1.email=session.user.email||''
       console.log('✅ Auth listener: session restored. isNewLogin=', isNewLogin, 'AU_SB_ID=', AU_SB_ID)
       hideAuthOverlay()
-      if(isNewLogin) await afterSignIn()
+      if(isNewLogin){
+        await afterSignIn()
+      } else {
+        await loadAllDataFromSB()
+      }
     } else if(event==='SIGNED_OUT'||(event==='INITIAL_SESSION'&&!session)){
       console.log('❌ Auth listener: signed out or no session')
       AU_SB_ID=null; AU_PARTNER_ID=null
@@ -1604,36 +1608,92 @@ async function loadAllDataFromSB(){
     return
   }
   try{
+    const sessionResult = await _sb.auth.getSession()
+    if(sessionResult.error){
+      console.warn('⚠️ loadAllDataFromSB auth.getSession error:', sessionResult.error)
+    }
+    const session = sessionResult.data?.session
+    console.log('🔧 Supabase session check:', session ? `id=${session.user?.id} token=${!!session.access_token}` : 'no session')
+    if(!session){
+      console.warn('⚠️ No active Supabase session found before data load')
+    }
+    
     // Budgets (own)
+    console.log('🔧 Loading budgets for user:', AU_SB_ID)
     const budgets=await sbLoadBudgets(AU_SB_ID)
+    console.log('🔧 Budgets loaded:', Array.isArray(budgets) ? budgets.length : 'invalid response')
     S.budgets.u1=budgets.map(b=>({id:b.id,uid:'u1',title:b.title,type:b.budget_type||'📋 General',amt:parseFloat(b.amount)||0,spent:parseFloat(b.total_spent)||0,start:b.start_date,days:b.duration_days||30,end:b.end_date,status:b.status,xfer:parseFloat(b.transferred)||0,notes:b.notes||''}))
     // Partner budgets
-    if(AU_PARTNER_ID){const pb=await sbLoadBudgets(AU_PARTNER_ID);S.budgets.u2=pb.map(b=>({id:b.id,uid:'u2',title:b.title,type:b.budget_type||'📋 General',amt:parseFloat(b.amount)||0,spent:parseFloat(b.total_spent)||0,start:b.start_date,days:b.duration_days||30,end:b.end_date,status:b.status,xfer:parseFloat(b.transferred)||0,notes:b.notes||''}))}
+    if(AU_PARTNER_ID){
+      console.log('🔧 Loading partner budgets for:', AU_PARTNER_ID)
+      const pb=await sbLoadBudgets(AU_PARTNER_ID)
+      console.log('🔧 Partner budgets loaded:', Array.isArray(pb) ? pb.length : 'invalid response')
+      S.budgets.u2=pb.map(b=>({id:b.id,uid:'u2',title:b.title,type:b.budget_type||'📋 General',amt:parseFloat(b.amount)||0,spent:parseFloat(b.total_spent)||0,start:b.start_date,days:b.duration_days||30,end:b.end_date,status:b.status,xfer:parseFloat(b.transferred)||0,notes:b.notes||''}))
+    }
     // Expenses
+    console.log('🔧 Loading expenses for user:', AU_SB_ID)
     const expenses=await sbLoadExpenses(AU_SB_ID)
+    console.log('🔧 Expenses loaded:', Array.isArray(expenses) ? expenses.length : 'invalid response')
     S.expenses.u1=expenses.map(e=>({id:e.id,uid:'u1',bid:e.budget_id,desc:e.description,amt:parseFloat(e.amount)||0,date:e.expense_date,catId:e.category_id||'cat8',pm:e.payment_method||'cash',custCat:e.custom_category||''}))
-    if(AU_PARTNER_ID){const pe=await sbLoadExpenses(AU_PARTNER_ID);S.expenses.u2=pe.map(e=>({id:e.id,uid:'u2',bid:e.budget_id,desc:e.description,amt:parseFloat(e.amount)||0,date:e.expense_date,catId:e.category_id||'cat8',pm:e.payment_method||'cash',custCat:e.custom_category||''}))}
+    if(AU_PARTNER_ID){
+      console.log('🔧 Loading partner expenses for:', AU_PARTNER_ID)
+      const pe=await sbLoadExpenses(AU_PARTNER_ID)
+      console.log('🔧 Partner expenses loaded:', Array.isArray(pe) ? pe.length : 'invalid response')
+      S.expenses.u2=pe.map(e=>({id:e.id,uid:'u2',bid:e.budget_id,desc:e.description,amt:parseFloat(e.amount)||0,date:e.expense_date,catId:e.category_id||'cat8',pm:e.payment_method||'cash',custCat:e.custom_category||''}))
+    }
     // Installments
+    console.log('🔧 Loading installments for user:', AU_SB_ID)
     const insts=await sbLoadInstallments(AU_SB_ID)
+    console.log('🔧 Installments loaded:', Array.isArray(insts) ? insts.length : 'invalid response')
     S.insts.u1=insts.map(i=>({id:i.id,uid:'u1',name:i.item_name,total:parseFloat(i.total_cost)||0,down:parseFloat(i.down_payment)||0,payAmt:parseFloat(i.payment_amount)||0,freq:i.frequency||'monthly',numPay:i.total_payments||1,paid:i.payments_made||0,nextDue:i.next_due_date,auto:i.auto_add_expense,status:i.status||'active',pm:i.payment_method||'cash'}))
-    if(AU_PARTNER_ID){const pi=await sbLoadInstallments(AU_PARTNER_ID);S.insts.u2=pi.map(i=>({id:i.id,uid:'u2',name:i.item_name,total:parseFloat(i.total_cost)||0,down:parseFloat(i.down_payment)||0,payAmt:parseFloat(i.payment_amount)||0,freq:i.frequency||'monthly',numPay:i.total_payments||1,paid:i.payments_made||0,nextDue:i.next_due_date,auto:i.auto_add_expense,status:i.status||'active',pm:i.payment_method||'cash'}))}
+    if(AU_PARTNER_ID){
+      console.log('🔧 Loading partner installments for:', AU_PARTNER_ID)
+      const pi=await sbLoadInstallments(AU_PARTNER_ID)
+      console.log('🔧 Partner installments loaded:', Array.isArray(pi) ? pi.length : 'invalid response')
+      S.insts.u2=pi.map(i=>({id:i.id,uid:'u2',name:i.item_name,total:parseFloat(i.total_cost)||0,down:parseFloat(i.down_payment)||0,payAmt:parseFloat(i.payment_amount)||0,freq:i.frequency||'monthly',numPay:i.total_payments||1,paid:i.payments_made||0,nextDue:i.next_due_date,auto:i.auto_add_expense,status:i.status||'active',pm:i.payment_method||'cash'}))
+    }
     // Savings goals
+    console.log('🔧 Loading savings goals for user:', AU_SB_ID)
     const goals=await sbLoadGoals(AU_SB_ID)
+    console.log('🔧 Goals loaded:', Array.isArray(goals) ? goals.length : 'invalid response')
     S.goals=goals.map(g=>({id:g.id,title:g.title,icon:g.icon||'🎯',target:parseFloat(g.target_amount)||0,color:g.color||'#d4537e',contributions:(g.savings_contributions||[]).map(c=>({id:c.id,uid:c.user_id===AU_SB_ID?'u1':'u2',amt:parseFloat(c.amount)||0,source:c.source||'manual',note:c.note||'',date:c.contribution_date}))}))
     // Todos
+    console.log('🔧 Loading todos for user:', AU_SB_ID)
     const todos=await sbLoadTodos(AU_SB_ID)
+    console.log('🔧 Todos loaded:', Array.isArray(todos) ? todos.length : 'invalid response')
     S.todos=[...todos.map(t=>({id:t.id,uid:'u1',title:t.title,cat:t.category||'personal',custCat:t.custom_cat||'',pri:t.priority||'mid',due:t.due_date||'',notes:t.notes||'',done:t.is_done||false}))]
-    if(AU_PARTNER_ID){const pt=await sbLoadTodos(AU_PARTNER_ID);S.todos=[...S.todos,...pt.map(t=>({id:t.id,uid:'u2',title:t.title,cat:t.category||'personal',custCat:t.custom_cat||'',pri:t.priority||'mid',due:t.due_date||'',notes:t.notes||'',done:t.is_done||false}))]}
+    if(AU_PARTNER_ID){
+      console.log('🔧 Loading partner todos for:', AU_PARTNER_ID)
+      const pt=await sbLoadTodos(AU_PARTNER_ID)
+      console.log('🔧 Partner todos loaded:', Array.isArray(pt) ? pt.length : 'invalid response')
+      S.todos=[...S.todos,...pt.map(t=>({id:t.id,uid:'u2',title:t.title,cat:t.category||'personal',custCat:t.custom_cat||'',pri:t.priority||'mid',due:t.due_date||'',notes:t.notes||'',done:t.is_done||false}))]
+    }
     // Wishlist
+    console.log('🔧 Loading wishlist for user:', AU_SB_ID)
     const wl=await sbLoadWishlist(AU_SB_ID)
+    console.log('🔧 Wishlist loaded:', Array.isArray(wl) ? wl.length : 'invalid response')
     S.wishlist.u1=wl.map(w=>({id:w.id,uid:'u1',name:w.item_name,price:parseFloat(w.target_price)||0,notes:w.notes||'',status:w.status||'planned',url:w.url||''}))
-    if(AU_PARTNER_ID){const pw=await sbLoadWishlist(AU_PARTNER_ID);S.wishlist.u2=pw.map(w=>({id:w.id,uid:'u2',name:w.item_name,price:parseFloat(w.target_price)||0,notes:w.notes||'',status:w.status||'planned',url:w.url||''}))}
+    if(AU_PARTNER_ID){
+      console.log('🔧 Loading partner wishlist for:', AU_PARTNER_ID)
+      const pw=await sbLoadWishlist(AU_PARTNER_ID)
+      console.log('🔧 Partner wishlist loaded:', Array.isArray(pw) ? pw.length : 'invalid response')
+      S.wishlist.u2=pw.map(w=>({id:w.id,uid:'u2',name:w.item_name,price:parseFloat(w.target_price)||0,notes:w.notes||'',status:w.status||'planned',url:w.url||''}))
+    }
     // Schedule
+    console.log('🔧 Loading schedule for user:', AU_SB_ID)
     const sched=await sbLoadSchedule(AU_SB_ID)
+    console.log('🔧 Schedule loaded:', Array.isArray(sched) ? sched.length : 'invalid response')
     S.schedule.u1=sched.map(s=>({id:s.id,uid:'u1',label:s.label,day:s.day_of_week,start:s.start_time?.slice(0,5)||'',end:s.end_time?.slice(0,5)||'',room:s.location||'',type:s.sched_type||'onsite',custType:s.custom_type||''}))
-    if(AU_PARTNER_ID){const ps=await sbLoadSchedule(AU_PARTNER_ID);S.schedule.u2=ps.map(s=>({id:s.id,uid:'u2',label:s.label,day:s.day_of_week,start:s.start_time?.slice(0,5)||'',end:s.end_time?.slice(0,5)||'',room:s.location||'',type:s.sched_type||'onsite',custType:s.custom_type||''}))}
+    if(AU_PARTNER_ID){
+      console.log('🔧 Loading partner schedule for:', AU_PARTNER_ID)
+      const ps=await sbLoadSchedule(AU_PARTNER_ID)
+      console.log('🔧 Partner schedule loaded:', Array.isArray(ps) ? ps.length : 'invalid response')
+      S.schedule.u2=ps.map(s=>({id:s.id,uid:'u2',label:s.label,day:s.day_of_week,start:s.start_time?.slice(0,5)||'',end:s.end_time?.slice(0,5)||'',room:s.location||'',type:s.sched_type||'onsite',custType:s.custom_type||''}))
+    }
     // Categories — remap local cat1–cat8 IDs to real Supabase UUIDs (fixes FK errors on expense saves)
+    console.log('🔧 Loading categories for user:', AU_SB_ID)
     const userCats=await sbLoadCategories(AU_SB_ID)
+    console.log('🔧 Categories loaded:', Array.isArray(userCats) ? userCats.length : 'invalid response')
     if(userCats.length>0){
       const sbCatMap={}; userCats.forEach(uc=>sbCatMap[uc.name]=uc.id)
       S.cats=S.cats.map(lc=>{const sbId=sbCatMap[lc.name];return sbId?{...lc,id:sbId}:lc})
@@ -1674,7 +1734,13 @@ function _initSBClient(){
   try{
     const sbLib = window.supabase || window.Supabase
     if(sbLib && typeof sbLib.createClient === 'function' && SUPABASE_URL && SUPABASE_URL !== 'YOUR_SUPABASE_URL_HERE'){
-      _sb = sbLib.createClient(SUPABASE_URL, SUPABASE_KEY)
+      _sb = sbLib.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: false,
+        }
+      })
       SB_READY = true
       console.log('✅ Supabase connected to:', SUPABASE_URL)
     } else if(!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL_HERE'){
